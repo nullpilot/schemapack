@@ -314,24 +314,28 @@ function getCompiledSchema(schema, validate) {
         if (repEncArrStack.length === 1) {
           strEncodeRefDecs += declareEncodeRef(newID, saveID, prop);
           strDecodeFunction += declareDecodeRef(newID, saveID, prop, "[]");
+        } else {
+          declareRepeatRefs(isRepArrItem, newID, saveID, prop, container, repEncArrStack, repDecArrStack, repByteCountStack);
         }
 
         var encArrayLength = encodeArrayLength(repID);
         var decArrayLength = decodeArrayLength(arrLenStr);
         var byteArrayLength = getArrayLengthByteCount(repID);
 
-        declareRepeatRefs(isRepArrItem, newID, saveID, prop, container, repEncArrStack, repDecArrStack, repByteCountStack);
-
         compileSchema(val, true);
 
-        tmpRepEncArr = encArrayLength + processArrayEnd(val, newID, repEncArrStack.pop() + tmpRepEncArr, repEncArrStack.length);
-        tmpRepDecArr = decArrayLength + processArrayEnd(val, newID, repDecArrStack.pop() + tmpRepDecArr, repEncArrStack.length, arrLenStr);
-        tmpRepByteCount = byteArrayLength + processArrayEnd(val, newID, repByteCountStack.pop() + tmpRepByteCount, repEncArrStack.length);
+        tmpRepEncArr = encArrayLength + processArrayEnd(val, newID, repEncArrStack.pop(), repEncArrStack.length);
+        tmpRepDecArr = decArrayLength + processArrayEnd(val, newID, repDecArrStack.pop(), repEncArrStack.length, arrLenStr);
+        tmpRepByteCount = byteArrayLength + processArrayEnd(val, newID, repByteCountStack.pop(), repEncArrStack.length);
+
+        repEncArrStack[repEncArrStack.length - 1] += tmpRepEncArr;
+        repDecArrStack[repDecArrStack.length - 1] += tmpRepDecArr;
+        repByteCountStack[repByteCountStack.length - 1] += tmpRepByteCount;
 
         if (repEncArrStack.length === 1) {
-          strEncodeFunction += tmpRepEncArr; tmpRepEncArr = "";
-          strDecodeFunction += tmpRepDecArr; tmpRepDecArr = "";
-          strByteCount += tmpRepByteCount; tmpRepByteCount = "";
+          strEncodeFunction += repEncArrStack[0]; repEncArrStack[0] = "";
+          strDecodeFunction += repDecArrStack[0]; repDecArrStack[0] = "";
+          strByteCount += repByteCountStack[0]; repByteCountStack[0] = "";
         }
       } else if (typeof val === 'object') {
         var newID = incID + 1;
@@ -339,9 +343,9 @@ function getCompiledSchema(schema, validate) {
         if (repEncArrStack.length === 1) {
           strEncodeRefDecs += declareEncodeRef(newID, saveID, prop);
           strDecodeFunction += declareDecodeRef(newID, saveID, prop, "{}");
+        } else {
+          declareRepeatRefs(isRepArrItem, newID, saveID, prop, container, repEncArrStack, repDecArrStack, repByteCountStack);
         }
-
-        declareRepeatRefs(isRepArrItem, newID, saveID, prop, container, repEncArrStack, repDecArrStack, repByteCountStack);
 
         compileSchema(val, false);
       } else {
@@ -352,16 +356,16 @@ function getCompiledSchema(schema, validate) {
         var repID = getXN(repEncArrStack, saveID);
         if (inArray) { repID += isRepArrItem ? "[j" + saveID + "]" : "[" + i + "]"; }
 
-        repEncArrStack[repEncArrStack.length - 1] += encodeValue(dataType, repID, index, validate);
-        repDecArrStack[repDecArrStack.length - 1] += decodeValue(dataType, repID, index);
-        repByteCountStack[repByteCountStack.length - 1] += encodeByteCount(dataType, repID, index);
-
-        if (repEncArrStack.length > 1) { continue; }
-
-        var uniqID = inArray ? saveID + "[" + i + "]" : saveID;
-        strEncodeFunction += encodeValue(dataType, uniqID, index, validate);
-        strDecodeFunction += decodeValue(dataType, uniqID, index);
-        strByteCount += encodeByteCount(dataType, uniqID, index);
+        if (repEncArrStack.length > 1) { 
+          repEncArrStack[repEncArrStack.length - 1] += encodeValue(dataType, repID, index, validate);
+          repDecArrStack[repDecArrStack.length - 1] += decodeValue(dataType, repID, index);
+          repByteCountStack[repByteCountStack.length - 1] += encodeByteCount(dataType, repID, index);
+        } else {  
+          var uniqID = inArray ? saveID + "[" + i + "]" : saveID;
+          strEncodeFunction += encodeValue(dataType, uniqID, index, validate);
+          strDecodeFunction += decodeValue(dataType, uniqID, index);
+          strByteCount += encodeByteCount(dataType, uniqID, index);
+        }
       }
     }
   }
